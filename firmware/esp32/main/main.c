@@ -14,6 +14,9 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 
+#include "esp_http_client.h"
+#include "cJSON.h"
+
 #include "config.h"
 #include "sensors.h"
 #include "web_server.h"
@@ -71,6 +74,45 @@ static void wifi_init_sta(void) {
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
+// ── HTTP POST to Gateway ────────────────────────────────────────────
+static void post_telemetry_to_gateway(const motor_metrics_t *metrics) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "rpm", metrics->rpm);
+    cJSON_AddNumberToObject(root, "voltage_V", metrics->ac_voltage_v);
+    cJSON_AddNumberToObject(root, "current_A", metrics->current_a);
+    cJSON_AddNumberToObject(root, "temp_body_C", metrics->temp_body_c);
+    cJSON_AddNumberToObject(root, "temp_bearing_C", metrics->temp_bearing_c);
+    cJSON_AddNumberToObject(root, "vib_g", metrics->vib_magnitude);
+    cJSON_AddNumberToObject(root, "healthScore", metrics->health_score);
+    cJSON_AddStringToObject(root, "fault", metrics->fault_msg);
+    cJSON_AddNumberToObject(root, "faultLevel", metrics->fault_level);
+    cJSON_AddBoolToObject(root, "relayState", metrics->relay_state);
+    cJSON_AddNumberToObject(root, "uptime", metrics->uptime_seconds);
+
+    char *post_data = cJSON_PrintUnformatted(root);
+    
+    esp_http_client_config_t config = {
+        .url = CONFIG_GATEWAY_URL,
+        .method = HTTP_METHOD_POST,
+        .timeout_ms = 2000,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK) {
+        ESP_LOGD(TAG, "Telemetry pushed to gateway. Status = %d", esp_http_client_get_status_code(client));
+    } else {
+        ESP_LOGE(TAG, "Failed to push telemetry to gateway: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    cJSON_free(post_data);
+    cJSON_Delete(root);
+}
+
+
 // ── FreeRTOS Sensor Sampling Task ───────────────────────────────────
 static void sensor_task(void *pvParameters) {
     motor_metrics_t metrics;
@@ -88,6 +130,9 @@ static void sensor_task(void *pvParameters) {
                      metrics.vib_magnitude,
                      metrics.health_score,
                      metrics.fault_msg);
+
+            // Send to external gateway service
+            post_telemetry_to_gateway(&metrics);
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }

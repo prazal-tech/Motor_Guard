@@ -2,7 +2,7 @@
 
 ## 1. System Components Architecture
 
-```
+```text
 +-------------------------------------------------------------------+
 |                        ESP32 MICROCONTROLLER                      |
 |                                                                   |
@@ -12,7 +12,7 @@
 |                                 |                                 |
 |   +-----------------------------v-----------------------------+   |
 |   |                 Sensor Sampling Loop (500ms)              |   |
-|   |   - ADC Oneshot: ADXL335 (X,Y,Z), ZMPT101B (Voltage)     |   |
+|   |   - ADC Oneshot: ADXL335 (X,Y,Z), ZMPT101B (Voltage)      |   |
 |   |   - I2C Driver: INA219 (Current/Voltage)                  |   |
 |   |   - 1-Wire Driver: DS18B20 (Temperature)                  |   |
 |   |   - GPIO Interrupt: Hall Tachometer (RPM)                 |   |
@@ -29,10 +29,21 @@
 |   +-----------------------------+-----------------------------+   |
 |                                 |                                 |
 |   +-----------------------------v-----------------------------+   |
-|   |                    ESP HTTP Web Server                    |   |
-|   |   - Serves / (Dashboard UI)                               |   |
-|   |   - Serves /data (cJSON Telemetry)                        |   |
-|   |   - Serves /toggle (Relay Control API)                    |   |
+|   |            ESP HTTP Web Server & HTTP Client              |   |
+|   |   - Serves local Dashboard UI (/) & API (/data, /toggle)  |   |
+|   |   - POSTs cJSON telemetry to Local Edge Gateway           |   |
+|   +-----------------------------+-----------------------------+   |
++---------------------------------+---------------------------------+
+                                  |
+                                  | HTTP POST /api/ingest
+                                  v
++-------------------------------------------------------------------+
+|                       NODE.JS EDGE GATEWAY                        |
+|                                                                   |
+|   +-----------------------------------------------------------+   |
+|   |                  Express.js REST API                      |   |
+|   |   - Ingests telemetry via POST /api/ingest                |   |
+|   |   - Serves cached telemetry via GET /api/telemetry        |   |
 |   +-----------------------------------------------------------+   |
 +-------------------------------------------------------------------+
 ```

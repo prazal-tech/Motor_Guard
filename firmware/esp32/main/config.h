@@ -25,6 +25,9 @@ extern "C" {
 #define THINGSPEAK_URL              "http://api.thingspeak.com/update"
 #define THINGSPEAK_INTERVAL_MS      16000
 
+#define CONFIG_GATEWAY_URL          "http://192.168.1.100:4000/api/ingest" // Update with local gateway IP
+
+
 // =====================================================================
 // GPIO PIN DEFINITIONS
 // =====================================================================
