@@ -1,0 +1,23 @@
+# ESP-IDF Build Artifacts
+firmware/esp32/build/
+firmware/esp32/sdkconfig
+firmware/esp32/sdkconfig.old
+firmware/esp32/managed_components/
+
+# Node.js / Apps / Gateway
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Secrets
+.env
+.env.local
+secrets.h
+
+# IDE & OS Files
+.vscode/*.git*
+.idea/
+*.swp
+*.DS_Store
+Thumbs.db

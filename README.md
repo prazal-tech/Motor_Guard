@@ -1,162 +1,142 @@
-# 🛡️ INFRA-NEX — Smart Industrial Motor Guard & Health Monitoring System
+# 🛡️ INFRA-NEX — Motor Guard Monorepo
 
-> **Native ESP-IDF Firmware & Industrial IoT Protection Dashboard**  
-> Multi-sensor telemetry acquisition (ADXL335, ZMPT101B, INA219, DS18B20, Hall Effect), real-time health score computation algorithm, automatic emergency relay tripping, and high-performance Web Server API.
+> **Smart Industrial Motor Protection & Real-time Health Telemetry System**  
+> Complete monorepo containing native ESP-IDF C firmware, edge gateway API, responsive web dashboard UI, hardware schematics, RTL health scoring modules, and technical documentation.
 
 ---
 
-## 📐 System Architecture
+## 🗂️ Monorepo Directory Architecture
+
+```
+Motor_Guard/
+├── apps/
+│   ├── dashboard/                # Web dashboard frontend (infraweb.html, esp.html)
+│   └── gateway/                  # Node.js edge gateway service (server.js)
+├── firmware/
+│   ├── esp32/                    # Native ESP-IDF C project (CMakeLists.txt, main.c, drivers)
+│   └── libraries/                # Shared C/C++ firmware headers (MotorGuardCore)
+├── hardware/
+│   ├── schematics/               # Circuit pinout & wiring diagrams (pinout.md)
+│   ├── bom/                      # Bill of Materials & electrical limits (BOM.md)
+│   └── pcb/                      # PCB specs & physical enclosure layout
+├── packages/
+│   └── core/                     # Shared telemetry JSON schema & data contracts
+├── docs/
+│   ├── architecture.md           # Subsystem architecture & FreeRTOS task specs
+│   ├── setup.md                  # ESP-IDF setup, flashing, & troubleshooting guide
+│   └── protocol.md               # Telemetry API endpoints & ThingSpeak payload spec
+├── scripts/                      # Build & flash scripts (.bat & .sh)
+├── .github/
+│   └── workflows/                # GitHub Actions CI firmware build workflow
+├── .env.example                  # Environment variables template
+├── .gitignore                    # Git exclusion rules
+└── README.md                     # Monorepo documentation entrypoint
+```
+
+---
+
+## 📐 System Overview & Architecture
 
 ```mermaid
 flowchart TD
-    subgraph HARDWARE["Sensors & Hardware Layer"]
-        ADXL["ADXL335<br/>3-Axis Accelerometer"]
-        ZMPT["ZMPT101B<br/>AC Voltage Sensor"]
-        INA["INA219<br/>I2C Current & Voltage"]
-        DS["DS18B20<br/>1-Wire Thermal Sensor"]
-        HALL["Hall Effect / TCRT<br/>RPM Tachometer"]
-        RELAY["Relay Switch<br/>Motor Intercept"]
+    subgraph SENSORS["Hardware Sensors"]
+        ADXL["ADXL335 (3-Axis Accel)<br/>GPIO 34, 35, 32"]
+        ZMPT["ZMPT101B (AC Voltage)<br/>GPIO 33"]
+        INA["INA219 (Current/Voltage)<br/>I2C GPIO 21, 22"]
+        DS["DS18B20 (Temperature)<br/>1-Wire GPIO 4"]
+        HALL["Hall Tachometer (RPM)<br/>GPIO 27 Interrupt"]
+        RELAY["Relay Intercept<br/>GPIO 25 Output"]
     end
 
-    subgraph ESPIDF["ESP32 ESP-IDF Core Engine"]
-        ADC_DRV["ADC Oneshot Driver<br/>(GPIO 34, 35, 32, 33)"]
-        I2C_DRV["I2C Master Driver<br/>(GPIO 21, 22)"]
-        ISR_DRV["GPIO Interrupt ISR<br/>(GPIO 27 Tachometer)"]
-        ONEWIRE["1-Wire Driver<br/>(GPIO 4 Temperature)"]
-        
-        TASK["FreeRTOS Task<br/>(500ms Sampling Loop)"]
-        HEALTH["Health Score Calculator<br/>(0–100 Deduction Model)"]
-        TRIP["Trip Logic & Protection<br/>(Relay Control)"]
-        HTTP["ESP HTTP Server<br/>(Port 80)"]
+    subgraph ESP32["ESP32 ESP-IDF Firmware (firmware/esp32/)"]
+        DRIVERS["Sensor Drivers & ADC Oneshot"]
+        LOOP["FreeRTOS Sampling Loop (500ms)"]
+        HEALTH["Health Deduction Engine (0–100)"]
+        PROTECT["Fault Trip Protection"]
+        HTTP["ESP HTTP Server (Port 80)"]
     end
 
-    subgraph SURFACES["Monitoring Interfaces"]
-        DASH["Responsive Web Dashboard<br/>(http://<esp32-ip>/)"]
-        JSON_API["Telemetry API<br/>(GET /data)"]
-        RELAY_API["Relay Control<br/>(POST /toggle)"]
-        CLOUD["ThingSpeak Cloud<br/>Channel Telemetry"]
+    subgraph SURFACES["Apps & Gateways (apps/)"]
+        GATEWAY["Edge Gateway Service<br/>(apps/gateway/)"]
+        DASH["Responsive Web Dashboard<br/>(apps/dashboard/)"]
+        CLOUD["ThingSpeak Cloud Channel"]
     end
 
-    ADXL -->|ADC1| ADC_DRV
-    ZMPT -->|ADC1| ADC_DRV
-    INA -->|I2C| I2C_DRV
-    DS -->|1-Wire| ONEWIRE
-    HALL -->|Pulse ISR| ISR_DRV
+    ADXL --> DRIVERS
+    ZMPT --> DRIVERS
+    INA --> DRIVERS
+    DS --> DRIVERS
+    HALL --> DRIVERS
 
-    ADC_DRV --> TASK
-    I2C_DRV --> TASK
-    ISR_DRV --> TASK
-    ONEWIRE --> TASK
+    DRIVERS --> LOOP
+    LOOP --> HEALTH
+    HEALTH --> PROTECT
+    PROTECT -->|Emergency Power Off| RELAY
 
-    TASK --> HEALTH
-    HEALTH --> TRIP
-    TRIP -->|GPIO 25| RELAY
-    TASK --> HTTP
-    
-    HTTP --> DASH
-    HTTP --> JSON_API
-    HTTP --> RELAY_API
-    TASK --> CLOUD
+    LOOP --> HTTP
+    HTTP -->|GET /data & POST /toggle| DASH
+    HTTP -->|Ingest API| GATEWAY
+    LOOP --> CLOUD
 ```
 
 ---
 
-## 🗂️ Repository Map
+## ⚡ Quickstart — ESP-IDF Firmware Setup
 
-| Directory / File | Description |
-| :--- | :--- |
-| [`firmware/`](file:///c:/Users/praza/Desktop/Motor_Guard/firmware) | Native C ESP-IDF firmware (`CMakeLists.txt`, `main/main.c`, `main/sensors.c`, `main/health_score.c`, `main/web_server.c`) |
-| [`web/`](file:///c:/Users/praza/Desktop/Motor_Guard/web) | Standalone responsive dark-themed dashboard frontend UI (`index.html`, `esp.html`) |
-| [`hardware/`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware) | Hardware specifications, Bill of Materials ([`BOM.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/BOM.md)), and GPIO connection table ([`pinout.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/pinout.md)) |
-| [`rtl/`](file:///c:/Users/praza/Desktop/Motor_Guard/rtl) | Verilog hardware deduction logic ([`health_score_calc.v`](file:///c:/Users/praza/Desktop/Motor_Guard/rtl/health_score_calc.v)) |
-| [`docs/`](file:///c:/Users/praza/Desktop/Motor_Guard/docs) | Project specifications ([`PRD.md`](file:///c:/Users/praza/Desktop/Motor_Guard/docs/PRD.md)), architecture guide ([`ARCHITECTURE.md`](file:///c:/Users/praza/Desktop/Motor_Guard/docs/ARCHITECTURE.md)), and ESP-IDF runbook ([`RUNBOOK.md`](file:///c:/Users/praza/Desktop/Motor_Guard/docs/RUNBOOK.md)) |
-
----
-
-## ⚡ Quickstart — ESP-IDF Terminal Guide
-
-### Prerequisites
-- Install **ESP-IDF v5.x** (or set up ESP-IDF command environment).
-- Connect ESP32 board via USB.
-
-### Build & Flash Commands
+### 1. Build & Flash Firmware
 Open your **ESP-IDF Terminal** and run:
 
 ```bash
-cd firmware
+# Using provided scripts (Windows)
+.\scripts\build_firmware.bat
+.\scripts\flash_firmware.bat COM3
 
-# Set target to ESP32
+# Or using idf.py directly
+cd firmware/esp32
 idf.py set-target esp32
-
-# Configure project (optional)
-idf.py menuconfig
-
-# Build project
 idf.py build
-
-# Flash firmware and launch serial monitor (replace COMX with your port, e.g., COM3 or /dev/ttyUSB0)
 idf.py -p COM3 flash monitor
+```
+
+### 2. Launch Local Gateway (Optional)
+```bash
+cd apps/gateway
+npm install
+npm start
 ```
 
 ---
 
-## 🔌 Hardware Wiring & Pin Mapping
+## 🔌 Hardware Pin Mapping
 
-| ESP32 Pin | Sensor Module | Function |
+| ESP32 Pin | Peripheral / Sensor | Signal / Interface |
 | :--- | :--- | :--- |
-| **GPIO 34** | ADXL335 | X-Axis Analog Input |
-| **GPIO 35** | ADXL335 | Y-Axis Analog Input |
-| **GPIO 32** | ADXL335 | Z-Axis Analog Input |
-| **GPIO 33** | ZMPT101B | AC Voltage Input |
-| **GPIO 27** | Hall Effect | Tachometer Pulse Interrupt |
-| **GPIO 4** | DS18B20 | 1-Wire Temperature Data |
+| **GPIO 34** | ADXL335 | X-Axis Analog Input (ADC1_CH6) |
+| **GPIO 35** | ADXL335 | Y-Axis Analog Input (ADC1_CH7) |
+| **GPIO 32** | ADXL335 | Z-Axis Analog Input (ADC1_CH4) |
+| **GPIO 33** | ZMPT101B | AC Voltage Input (ADC1_CH5) |
+| **GPIO 27** | Hall Effect Sensor | Tachometer Pulse Interrupt |
+| **GPIO 4** | DS18B20 | 1-Wire Thermal Data (4.7k&Omega; pull-up) |
 | **GPIO 21** | INA219 | I2C SDA |
 | **GPIO 22** | INA219 | I2C SCL |
 | **GPIO 25** | Relay Module | Emergency Power Trip Output |
 
-*For complete electrical details, see [`hardware/pinout.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/pinout.md) and [`hardware/BOM.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/BOM.md).*
-
----
-
-## 🌐 Web Server API Endpoints
-
-Once connected to Wi-Fi, the ESP-IDF web server exposes:
-
-- **`GET /`**: Serves the interactive telemetry dashboard interface.
-- **`GET /data`**: Returns real-time JSON metrics:
-  ```json
-  {
-    "rpm": 450.0,
-    "voltage_V": 230.5,
-    "current_A": 0.215,
-    "temp_body_C": 28.5,
-    "temp_bearing_C": 31.0,
-    "vib_g": 0.045,
-    "healthScore": 100,
-    "fault": "SYSTEM NORMAL",
-    "faultLevel": 0,
-    "relayState": false,
-    "uptime": 124
-  }
-  ```
-- **`POST /toggle`**: Manually toggles the emergency relay state.
+*See [`hardware/schematics/pinout.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/schematics/pinout.md) and [`hardware/bom/BOM.md`](file:///c:/Users/praza/Desktop/Motor_Guard/hardware/bom/BOM.md) for full schematics.*
 
 ---
 
 ## 📊 Health Score Formula
 
-The motor health score is calculated in real time (0–100 range):
+The motor health score is computed dynamically in real time:
 
 $$\text{Health Score} = \max\left(0, 100 - \sum \text{Deductions}\right)$$
 
-| Condition | Deduction |
-| :--- | :--- |
-| **RPM Stall / Over-speed** | -20 pts |
-| **RPM Degraded** | -10 pts |
-| **AC Voltage Bad** | -20 pts |
-| **High Current** | -20 pts |
-| **High Temperature** | -20 pts |
-| **Excessive Vibration** | -20 pts |
+- **RPM Stall / Over-speed**: -20 pts
+- **RPM Degraded**: -10 pts
+- **AC Voltage Bad**: -20 pts
+- **High Current**: -20 pts
+- **High Temperature**: -20 pts
+- **Excessive Vibration**: -20 pts
 
 ---
 

@@ -1,0 +1,23 @@
+name: ESP-IDF Firmware CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: ESP-IDF Build Action
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: 'v5.1'
+          target: 'esp32'
+          path: 'firmware/esp32'

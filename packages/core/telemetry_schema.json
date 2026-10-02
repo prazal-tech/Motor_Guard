@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MotorGuardTelemetry",
+  "type": "object",
+  "properties": {
+    "rpm": { "type": "number", "minimum": 0 },
+    "voltage_V": { "type": "number" },
+    "current_A": { "type": "number" },
+    "temp_body_C": { "type": "number" },
+    "temp_bearing_C": { "type": "number" },
+    "vib_g": { "type": "number" },
+    "healthScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "fault": { "type": "string" },
+    "faultLevel": { "type": "integer", "enum": [0, 1, 2] },
+    "relayState": { "type": "boolean" },
+    "uptime": { "type": "integer" }
+  },
+  "required": ["rpm", "voltage_V", "current_A", "temp_body_C", "healthScore", "fault", "relayState"]
+}
