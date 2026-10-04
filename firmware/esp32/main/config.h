@@ -17,8 +17,8 @@ extern "C" {
 // =====================================================================
 // WIFI & THINGSPEAK CONFIGURATION
 // =====================================================================
-#define CONFIG_WIFI_SSID            "YOUR_WIFI_SSID"
-#define CONFIG_WIFI_PASSWORD        "YOUR_WIFI_PASSWORD"
+#define CONFIG_WIFI_SSID            "Jayshree krishna"
+#define CONFIG_WIFI_PASSWORD        "Shreenathg@131"
 #define CONFIG_WIFI_MAXIMUM_RETRY   10
 
 #define THINGSPEAK_API_KEY          "7DF6OSIMH0V3YCKR"

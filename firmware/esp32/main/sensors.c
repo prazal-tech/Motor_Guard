@@ -10,7 +10,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "driver/gpio.h"
-#include "driver/i2c.h"
+// #include "driver/i2c.h" (Migrated to driver/i2c_master.h below)
 #include "esp_adc/adc_oneshot.h"
 #include "rom/ets_sys.h"
 
@@ -112,32 +112,33 @@ static float ds18b20_read_temperature(void) {
 }
 
 // ── INA219 I2C Drivers ──────────────────────────────────────────────
+#include "driver/i2c_master.h"
+static i2c_master_dev_handle_t ina219_dev_handle;
+
 static esp_err_t ina219_init_i2c(void) {
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = INA219_SDA_PIN,
+    i2c_master_bus_config_t i2c_mst_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = INA219_I2C_PORT,
         .scl_io_num = INA219_SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = INA219_I2C_FREQ_HZ,
+        .sda_io_num = INA219_SDA_PIN,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
-    i2c_param_config(INA219_I2C_PORT, &conf);
-    return i2c_driver_install(INA219_I2C_PORT, conf.mode, 0, 0, 0);
+    i2c_master_bus_handle_t bus_handle;
+    esp_err_t ret = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
+    if (ret != ESP_OK) return ret;
+
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = INA219_I2C_ADDR,
+        .scl_speed_hz = INA219_I2C_FREQ_HZ,
+    };
+    return i2c_master_bus_add_device(bus_handle, &dev_cfg, &ina219_dev_handle);
 }
 
 static esp_err_t ina219_read_register(uint8_t reg, uint16_t *val) {
     uint8_t data[2];
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (INA219_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (INA219_I2C_ADDR << 1) | I2C_MASTER_READ, true);
-    i2c_master_read(cmd, data, 2, I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(INA219_I2C_PORT, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-
+    esp_err_t ret = i2c_master_transmit_receive(ina219_dev_handle, &reg, 1, data, 2, -1);
     if (ret == ESP_OK) {
         *val = (data[0] << 8) | data[1];
     }
@@ -299,8 +300,11 @@ esp_err_t sensors_read_all(motor_metrics_t *m) {
     }
 
     // Trip Relay Decision Logic
-    bool trigger_relay = (m->fault_level == 2);
-    sensors_set_relay(trigger_relay);
+    // Only force the relay to trip if there is a critical fault.
+    // Otherwise, leave it alone so manual dashboard toggles aren't overwritten.
+    if (m->fault_level == 2) {
+        sensors_set_relay(true);
+    }
     m->relay_state = current_relay_state;
 
     return ESP_OK;
