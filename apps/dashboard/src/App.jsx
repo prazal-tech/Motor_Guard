@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Zap, Thermometer, Gauge, Settings, ShieldAlert, Cpu, Waves, Clock, Battery } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase (Will be null if keys are not set)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 function App() {
   const [telemetry, setTelemetry] = useState({
@@ -70,13 +76,58 @@ function App() {
       });
     };
 
-    // Initial call
-    generateDummyTelemetry();
-    
-    // Setup interval for every second
-    const interval = setInterval(generateDummyTelemetry, 1000);
-    return () => clearInterval(interval);
+    // Setup Supabase Realtime if configured
+    if (supabase) {
+      console.log("Supabase configured! Listening for real-time telemetry...");
+      setIsConnected(true);
+      
+      const fetchInitialData = async () => {
+        const { data, error } = await supabase
+          .from('telemetry')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (data && data.length > 0) {
+          updateUIWithData(data[0]);
+        }
+      };
+
+      fetchInitialData();
+
+      const subscription = supabase
+        .channel('telemetry-changes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetry' }, payload => {
+          updateUIWithData(payload.new);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    } else {
+      // Fallback: Generate Dummy Telemetry if no Supabase keys
+      console.log("No Supabase keys found in .env. Using simulated data.");
+      generateDummyTelemetry();
+      const interval = setInterval(generateDummyTelemetry, 1000);
+      return () => clearInterval(interval);
+    }
   }, []);
+
+  const updateUIWithData = (newData) => {
+    setTelemetry(newData);
+    setHistory(prev => {
+      const newHist = [...prev, { 
+          time: new Date(newData.timestamp || Date.now()).toLocaleTimeString().slice(0, 8), 
+          rpm: newData.rpm, 
+          temp: newData.temp_body_c, 
+          current: newData.current_a,
+          vib: newData.vib_magnitude
+      }];
+      if (newHist.length > 20) newHist.shift();
+      return newHist;
+    });
+  };
 
   const getHealthColor = (score) => {
     if (score > 80) return 'var(--success)';

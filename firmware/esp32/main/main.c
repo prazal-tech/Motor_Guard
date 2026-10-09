@@ -78,26 +78,35 @@ static void wifi_init_sta(void) {
 static void post_telemetry_to_gateway(const motor_metrics_t *metrics) {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddNumberToObject(root, "rpm", metrics->rpm);
-    cJSON_AddNumberToObject(root, "voltage_V", metrics->ac_voltage_v);
-    cJSON_AddNumberToObject(root, "current_A", metrics->current_a);
-    cJSON_AddNumberToObject(root, "temp_body_C", metrics->temp_body_c);
-    cJSON_AddNumberToObject(root, "temp_bearing_C", metrics->temp_bearing_c);
-    cJSON_AddNumberToObject(root, "vib_g", metrics->vib_magnitude);
-    cJSON_AddNumberToObject(root, "healthScore", metrics->health_score);
-    cJSON_AddStringToObject(root, "fault", metrics->fault_msg);
-    cJSON_AddNumberToObject(root, "faultLevel", metrics->fault_level);
-    cJSON_AddBoolToObject(root, "relayState", metrics->relay_state);
-    cJSON_AddNumberToObject(root, "uptime", metrics->uptime_seconds);
+    cJSON_AddNumberToObject(root, "ac_voltage_v", metrics->ac_voltage_v);
+    cJSON_AddNumberToObject(root, "bus_voltage_v", metrics->bus_voltage_v);
+    cJSON_AddNumberToObject(root, "current_a", metrics->current_a);
+    cJSON_AddNumberToObject(root, "temp_body_c", metrics->temp_body_c);
+    cJSON_AddNumberToObject(root, "temp_bearing_c", metrics->temp_bearing_c);
+    cJSON_AddNumberToObject(root, "vib_magnitude", metrics->vib_magnitude);
+    cJSON_AddNumberToObject(root, "health_score", metrics->health_score);
+    cJSON_AddStringToObject(root, "fault_msg", metrics->fault_msg);
+    cJSON_AddNumberToObject(root, "fault_level", metrics->fault_level);
+    cJSON_AddBoolToObject(root, "relay_state", metrics->relay_state);
 
     char *post_data = cJSON_PrintUnformatted(root);
     
     esp_http_client_config_t config = {
-        .url = CONFIG_GATEWAY_URL,
+        .url = SUPABASE_URL "/rest/v1/telemetry",
         .method = HTTP_METHOD_POST,
-        .timeout_ms = 2000,
+        .timeout_ms = 4000,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_header(client, "apikey", SUPABASE_ANON_KEY);
+    
+    char auth_header[400];
+    snprintf(auth_header, sizeof(auth_header), "Bearer %s", SUPABASE_ANON_KEY);
+    esp_http_client_set_header(client, "Authorization", auth_header);
+    
+    // Some supabase endpoints require Prefer header for immediate response parsing, optional.
+    esp_http_client_set_header(client, "Prefer", "return=minimal");
+
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
     esp_err_t err = esp_http_client_perform(client);

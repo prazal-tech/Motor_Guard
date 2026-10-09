@@ -25,7 +25,9 @@ extern "C" {
 #define THINGSPEAK_URL              "http://api.thingspeak.com/update"
 #define THINGSPEAK_INTERVAL_MS      16000
 
-#define CONFIG_GATEWAY_URL          "http://192.168.1.100:4000/api/ingest" // Update with local gateway IP
+#define CONFIG_GATEWAY_URL          "http://192.168.1.100:4000/api/ingest" // Keep for local testing if needed
+#define SUPABASE_URL                "https://brlxgpzdezntqikzgynx.supabase.co"
+#define SUPABASE_ANON_KEY           "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJybHhncHpkZXpudHFpa3pneW54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MjMzOTcsImV4cCI6MjEwNjk5OTM5N30.CZqPVkN3NHhnrCet0qjpY3KL65tmvNjwK9yUgz5780M"
 
 
 // =====================================================================
