@@ -4,8 +4,8 @@
 #include <DallasTemperature.h>
 
 // WiFi credentials
-const char* ssid = "Jayshree krishna";
-const char* password = "Shreenathg@131";
+const char* ssid = "Prazal's Motorola";
+const char* password = "44332211";
 // MQTT broker info
 const char* mqtt_server = "broker.emqx.io";
 
